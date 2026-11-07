@@ -15,6 +15,20 @@
       "when": 1794045361896,
       "tag": "0001_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794046211736,
+      "tag": "0002_prompt_browser_ownership",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794046430354,
+      "tag": "0003_restrict_prompt_ownership_access",
+      "breakpoints": true
     }
   ]
 }

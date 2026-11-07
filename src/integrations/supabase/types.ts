@@ -43,6 +43,29 @@ export type Database = {
           },
         ]
       }
+      prompt_ownership: {
+        Row: {
+          owner_hash: string
+          prompt_id: string
+        }
+        Insert: {
+          owner_hash: string
+          prompt_id: string
+        }
+        Update: {
+          owner_hash?: string
+          prompt_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_ownership_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: true
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prompts: {
         Row: {
           author: string

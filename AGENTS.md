@@ -30,3 +30,4 @@ use the editor.
 <!-- LOVABLE:END -->
 
 - Reuse metric lives in src/lib/reuse.ts: a copy counts only when copier name differs from author (case-insensitive); keeps the class question measurable in one tested place.
+- Prompt mutations use server functions with a random HttpOnly browser capability; only its hash is stored in the private prompt_ownership table, preventing name impersonation from authorizing edits or deletions.
