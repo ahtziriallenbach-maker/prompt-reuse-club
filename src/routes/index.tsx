@@ -101,7 +101,7 @@ function Index() {
       <nav className="flex flex-wrap gap-2 pb-6">
         {[null, ...MODULES].map((m) => (
           <Button key={m ?? "all"} size="sm" variant={module === m ? "default" : "outline"} onClick={() => setModule(m)}>
-            {m ?? "Todos"}
+            {m ?? "Todos"} <span className="opacity-60">({m ? (perModule.get(m) ?? 0) : prompts.length})</span>
           </Button>
         ))}
       </nav>
