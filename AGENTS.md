@@ -28,3 +28,5 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+- Reuse metric lives in src/lib/reuse.ts: a copy counts only when copier name differs from author (case-insensitive); keeps the class question measurable in one tested place.
