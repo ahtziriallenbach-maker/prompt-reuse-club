@@ -14,7 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      prompt_copies: {
+        Row: {
+          copier: string
+          created_at: string
+          id: string
+          prompt_id: string
+        }
+        Insert: {
+          copier: string
+          created_at?: string
+          id?: string
+          prompt_id: string
+        }
+        Update: {
+          copier?: string
+          created_at?: string
+          id?: string
+          prompt_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_copies_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompts: {
+        Row: {
+          author: string
+          body: string
+          created_at: string
+          id: string
+          module: string
+          title: string
+        }
+        Insert: {
+          author: string
+          body: string
+          created_at?: string
+          id?: string
+          module: string
+          title: string
+        }
+        Update: {
+          author?: string
+          body?: string
+          created_at?: string
+          id?: string
+          module?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
