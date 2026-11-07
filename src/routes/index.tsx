@@ -159,7 +159,7 @@ function NewPrompt({ author }: { author: string }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [module, setModule] = useState(MODULES[0]);
+  const [module, setModule] = useState<string>(MODULES[0] ?? "Otros");
   const add = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("prompts").insert({ author, title: title.trim(), body: body.trim(), module });
