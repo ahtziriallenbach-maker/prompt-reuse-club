@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Banco de prompts · Bootcamp de producto" },
+      { title: "Banco de prompts · AI Product Builder" },
       { name: "description", content: "Los mejores prompts de la clase, en un solo sitio. Copia, reutiliza y descubre cuáles usa más la gente." },
       { property: "og:title", content: "Banco de prompts del bootcamp" },
       { property: "og:description", content: "Los prompts de la clase, organizados por módulo y con reusos medidos." },
@@ -76,7 +76,7 @@ function Index() {
     <main className="mx-auto max-w-5xl px-5 py-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-6">
         <div>
-          <p className="text-sm uppercase tracking-widest text-muted-foreground">Bootcamp de producto</p>
+          <p className="text-sm uppercase tracking-widest text-muted-foreground">AI Product Builder · 2026</p>
           <h1 className="font-display text-6xl leading-none md:text-7xl">Banco de prompts</h1>
         </div>
         <div className="flex items-center gap-3 text-sm">
