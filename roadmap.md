@@ -1,0 +1,3 @@
+- [ ] Add browser-protected prompt creation, editing and deletion.
+- [ ] Add Mis prompts view and edit/delete dialogs.
+- [ ] Test ownership restrictions and verify create/edit/delete on desktop and mobile.
