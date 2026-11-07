@@ -133,7 +133,7 @@ function Index() {
                 <span className="text-muted-foreground">{stats.perPrompt.get(p.id) ?? 0} reusos</span>
               </div>
               <h2 className="break-words font-display text-3xl leading-tight">{p.title}</h2>
-              <p className="mb-4 text-sm text-muted-foreground">por {p.author}</p>
+              <p className="mb-4 break-words text-sm text-muted-foreground">Añadido por <span className="font-medium text-foreground">{p.author}</span></p>
               <pre className="mb-4 max-h-48 flex-1 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-3 text-sm">{p.body}</pre>
               <Button onClick={() => copy.mutate(p)} disabled={copy.isPending}>
                 <CopyIcon /> Copiar prompt
