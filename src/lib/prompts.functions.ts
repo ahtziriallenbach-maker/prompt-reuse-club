@@ -16,9 +16,10 @@ async function ownerHash(create: boolean) {
   if (!token || !/^[a-f0-9-]{72}$/.test(token)) {
     if (!create) return null;
     token = crypto.randomUUID() + crypto.randomUUID();
+    const secure = new URL(getRequest().url).protocol === "https:";
     setCookie("pb-owner", token, {
-      httpOnly: true, secure: new URL(getRequest().url).protocol === "https:",
-      sameSite: "none", path: "/", maxAge: 60 * 60 * 24 * 365,
+      httpOnly: true, secure,
+      sameSite: secure ? "none" : "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
     });
   }
   return browserOwnerHash(token);

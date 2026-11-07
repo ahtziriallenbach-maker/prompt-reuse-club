@@ -2,13 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy as CopyIcon, Plus } from "lucide-react";
+import { Copy as CopyIcon, Plus, Pencil, Trash2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { createPrompt, getOwnedPromptIds, managePrompt } from "@/lib/prompts.functions";
+import { isPromptAuthor } from "@/lib/prompt-ownership";
 import { supabase } from "@/integrations/supabase/client";
 import { MODULES, reuseStats, type Copy, type Prompt } from "@/lib/reuse";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,6 +41,13 @@ function Index() {
   const qc = useQueryClient();
   const [name, setName] = useName();
   const [module, setModule] = useState<string | null>(null);
+  const [onlyMine, setOnlyMine] = useState(false);
+  const ownedIdsFn = useServerFn(getOwnedPromptIds);
+  const { data: ownedIds = [] } = useQuery({
+    queryKey: ["owned-prompts", name],
+    queryFn: () => ownedIdsFn(),
+    enabled: Boolean(name),
+  });
 
   const { data } = useQuery({
     queryKey: ["bank"],
@@ -53,12 +63,14 @@ function Index() {
   });
   const prompts = data?.prompts ?? [];
   const stats = useMemo(() => reuseStats(prompts, data?.copies ?? []), [data]);
-  const visible = module ? prompts.filter((p) => p.module === module) : prompts;
+  const myPrompts = prompts.filter((p) => isPromptAuthor(p.author, name));
+  const scopedPrompts = onlyMine ? myPrompts : prompts;
+  const visible = module ? scopedPrompts.filter((p) => p.module === module) : scopedPrompts;
   const perModule = useMemo(() => {
     const m = new Map<string, number>();
-    for (const p of prompts) m.set(p.module, (m.get(p.module) ?? 0) + 1);
+    for (const p of scopedPrompts) m.set(p.module, (m.get(p.module) ?? 0) + 1);
     return m;
-  }, [prompts]);
+  }, [scopedPrompts]);
 
   const copy = useMutation({
     mutationFn: async (p: Prompt) => {
@@ -86,7 +98,7 @@ function Index() {
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted-foreground">
-            Hola, <button className="underline" onClick={() => setName("")}>{name}</button>
+            Hola, <Button variant="link" className="h-auto p-0" onClick={() => setName("")}>{name}</Button>
           </span>
           <NewPrompt author={name} />
         </div>
@@ -98,16 +110,20 @@ function Index() {
         <Stat value={`${pct}%`} label="de prompts reutilizados al menos una vez" />
       </section>
 
-      <nav className="flex flex-wrap gap-2 pb-6">
+      <div className="mb-4 flex gap-2 border-b pb-4" role="group" aria-label="Vista de prompts">
+        <Button variant={onlyMine ? "outline" : "default"} aria-pressed={!onlyMine} onClick={() => setOnlyMine(false)}>Banco de la clase</Button>
+        <Button variant={onlyMine ? "default" : "outline"} aria-pressed={onlyMine} onClick={() => setOnlyMine(true)}>Mis prompts ({myPrompts.length})</Button>
+      </div>
+      <nav className="flex flex-wrap gap-2 pb-6" aria-label="Módulos">
         {[null, ...MODULES].map((m) => (
           <Button key={m ?? "all"} size="sm" variant={module === m ? "default" : "outline"} onClick={() => setModule(m)}>
-            {m ?? "Todos"} <span className="opacity-60">({m ? (perModule.get(m) ?? 0) : prompts.length})</span>
+            {m ?? "Todos"} <span className="opacity-60">({m ? (perModule.get(m) ?? 0) : scopedPrompts.length})</span>
           </Button>
         ))}
       </nav>
 
       {visible.length === 0 ? (
-        <p className="py-16 text-center font-display text-3xl text-muted-foreground">Aún no hay prompts aquí. Sé el primero.</p>
+        <p className="py-16 text-center font-display text-3xl text-muted-foreground">{onlyMine ? (module ? "No has añadido prompts en este módulo." : "Todavía no has añadido ningún prompt.") : "Aún no hay prompts aquí. Sé el primero."}</p>
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
           {visible.map((p) => (
@@ -116,12 +132,13 @@ function Index() {
                 <span className="rounded-sm bg-accent px-2 py-0.5 text-accent-foreground">{p.module}</span>
                 <span className="text-muted-foreground">{stats.perPrompt.get(p.id) ?? 0} reusos</span>
               </div>
-              <h2 className="font-display text-3xl leading-tight">{p.title}</h2>
+              <h2 className="break-words font-display text-3xl leading-tight">{p.title}</h2>
               <p className="mb-4 text-sm text-muted-foreground">por {p.author}</p>
               <pre className="mb-4 max-h-48 flex-1 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-3 text-sm">{p.body}</pre>
               <Button onClick={() => copy.mutate(p)} disabled={copy.isPending}>
                 <CopyIcon /> Copiar prompt
               </Button>
+              {ownedIds.includes(p.id) && <div className="mt-3 flex justify-end gap-2 border-t pt-3"><NewPrompt author={name} prompt={p} /><DeletePrompt prompt={p} /></div>}
             </article>
           ))}
         </div>
@@ -159,34 +176,42 @@ function NameGate({ onSave }: { onSave: (n: string) => void }) {
   );
 }
 
-function NewPrompt({ author }: { author: string }) {
+function NewPrompt({ author, prompt }: { author: string; prompt?: Prompt }) {
   const qc = useQueryClient();
+  const createFn = useServerFn(createPrompt);
+  const manageFn = useServerFn(managePrompt);
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [module, setModule] = useState<string>(MODULES[0] ?? "Otros");
+  const [title, setTitle] = useState(prompt?.title ?? "");
+  const [body, setBody] = useState(prompt?.body ?? "");
+  const [module, setModule] = useState<string>(prompt?.module ?? MODULES[0] ?? "Otros");
   const add = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("prompts").insert({ author, title: title.trim(), body: body.trim(), module });
-      if (error) throw error;
+      const fields = { title: title.trim(), body: body.trim(), module };
+      if (prompt) await manageFn({ data: { ...fields, id: prompt.id, action: "edit" } });
+      else await createFn({ data: { ...fields, author } });
     },
     onSuccess: () => {
-      toast.success("Prompt guardado");
-      setTitle("");
-      setBody("");
+      toast.success(prompt ? "Cambios guardados" : "Prompt guardado");
+      if (!prompt) { setTitle(""); setBody(""); }
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["bank"] });
+      qc.invalidateQueries({ queryKey: ["owned-prompts"] });
     },
     onError: () => toast.error("No se pudo guardar"),
   });
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(value) => {
+      if (add.isPending) return;
+      if (value && prompt) { setTitle(prompt.title); setBody(prompt.body); setModule(prompt.module); }
+      setOpen(value);
+    }}>
       <DialogTrigger asChild>
-        <Button><Plus /> Añadir prompt</Button>
+        {prompt ? <Button variant="outline" size="icon" title="Editar prompt" aria-label={`Editar ${prompt.title}`}><Pencil /></Button> : <Button><Plus /> Añadir prompt</Button>}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display text-3xl font-normal">Nuevo prompt</DialogTitle>
+          <DialogTitle className="font-display text-3xl font-normal">{prompt ? "Editar prompt" : "Nuevo prompt"}</DialogTitle>
+          <DialogDescription className="sr-only">Título, módulo y contenido del prompt</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"
@@ -195,18 +220,50 @@ function NewPrompt({ author }: { author: string }) {
             if (title.trim() && body.trim()) add.mutate();
           }}
         >
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (p. ej. Entrevista de discovery)" maxLength={120} />
+          <Input aria-label="Título" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (p. ej. Entrevista de discovery)" maxLength={120} disabled={add.isPending} />
           <div className="flex flex-wrap gap-2">
             {MODULES.map((m) => (
-              <Button key={m} type="button" size="sm" variant={module === m ? "default" : "outline"} onClick={() => setModule(m)}>
+              <Button key={m} type="button" size="sm" disabled={add.isPending} variant={module === m ? "default" : "outline"} onClick={() => setModule(m)}>
                 {m}
               </Button>
             ))}
           </div>
-          <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Pega aquí tu prompt…" rows={8} maxLength={8000} />
-          <Button type="submit" className="w-full" disabled={add.isPending}>Guardar</Button>
+          <Textarea aria-label="Contenido del prompt" required disabled={add.isPending} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Pega aquí tu prompt…" rows={8} maxLength={8000} />
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" disabled={add.isPending} onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="submit" className="flex-1" disabled={add.isPending || !title.trim() || !body.trim()}>{add.isPending ? "Guardando…" : prompt ? "Guardar cambios" : "Guardar"}</Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
   );
+}
+
+function DeletePrompt({ prompt }: { prompt: Prompt }) {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const manageFn = useServerFn(managePrompt);
+  const remove = useMutation({
+    mutationFn: () => manageFn({ data: { action: "delete", id: prompt.id } }),
+    onSuccess: () => {
+      setOpen(false);
+      toast.success("Prompt eliminado");
+      qc.invalidateQueries({ queryKey: ["bank"] });
+      qc.invalidateQueries({ queryKey: ["owned-prompts"] });
+    },
+    onError: () => toast.error("No se pudo eliminar el prompt"),
+  });
+  return <Dialog open={open} onOpenChange={(value) => { if (!remove.isPending) setOpen(value); }}>
+    <DialogTrigger asChild><Button variant="outline" size="icon" className="text-destructive" title="Eliminar prompt" aria-label={`Eliminar ${prompt.title}`}><Trash2 /></Button></DialogTrigger>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle className="font-display text-3xl font-normal">¿Eliminar este prompt?</DialogTitle>
+        <DialogDescription className="break-words">«{prompt.title}» se eliminará del banco junto con sus reusos. No se puede deshacer.</DialogDescription>
+      </DialogHeader>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setOpen(false)} disabled={remove.isPending}>Cancelar</Button>
+        <Button variant="destructive" onClick={() => remove.mutate()} disabled={remove.isPending}><Trash2 />{remove.isPending ? "Eliminando…" : "Eliminar prompt"}</Button>
+      </div>
+    </DialogContent>
+  </Dialog>;
 }
