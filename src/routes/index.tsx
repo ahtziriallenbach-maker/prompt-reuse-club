@@ -54,6 +54,11 @@ function Index() {
   const prompts = data?.prompts ?? [];
   const stats = useMemo(() => reuseStats(prompts, data?.copies ?? []), [data]);
   const visible = module ? prompts.filter((p) => p.module === module) : prompts;
+  const perModule = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of prompts) m.set(p.module, (m.get(p.module) ?? 0) + 1);
+    return m;
+  }, [prompts]);
 
   const copy = useMutation({
     mutationFn: async (p: Prompt) => {
