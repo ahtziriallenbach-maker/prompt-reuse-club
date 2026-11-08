@@ -1,5 +1,5 @@
-- [ ] Extend the bank to skills with text and downloadable files, preserving browser ownership.
-- [ ] Verify skill creation, filtering, editing, download and deletion.
+- [x] Extend the bank to skills with text and downloadable files, preserving browser ownership.
+- [x] Verify skill creation, filtering, editing, download and deletion.
 - [x] Add browser-protected prompt creation, editing and deletion.
 - [x] Add Mis prompts view and edit/delete dialogs.
 - [x] Test ownership restrictions and verify create/edit/delete on desktop and mobile.
