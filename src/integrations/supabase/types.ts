@@ -68,26 +68,32 @@ export type Database = {
       }
       prompts: {
         Row: {
+          attachments: Json
           author: string
           body: string
           created_at: string
           id: string
+          kind: string
           module: string
           title: string
         }
         Insert: {
+          attachments?: Json
           author: string
           body: string
           created_at?: string
           id?: string
+          kind?: string
           module: string
           title: string
         }
         Update: {
+          attachments?: Json
           author?: string
           body?: string
           created_at?: string
           id?: string
+          kind?: string
           module?: string
           title?: string
         }
