@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy as CopyIcon, Plus, Pencil, Trash2 } from "lucide-react";
+import { Copy as CopyIcon, Plus, Pencil, Trash2, Download, Paperclip, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { createPrompt, getOwnedPromptIds, managePrompt } from "@/lib/prompts.functions";
+import { createPrompt, getOwnedPromptIds, managePrompt, downloadSkillFile } from "@/lib/prompts.functions";
+import { getAttachments, validateFile } from "@/lib/resources";
 import { isPromptAuthor } from "@/lib/prompt-ownership";
 import { supabase } from "@/integrations/supabase/client";
 import { MODULES, reuseStats, type Copy, type Prompt } from "@/lib/reuse";
@@ -16,10 +17,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Banco de prompts · AI Product Builder" },
-      { name: "description", content: "Los mejores prompts de la clase, en un solo sitio. Copia, reutiliza y descubre cuáles usa más la gente." },
-      { property: "og:title", content: "Banco de prompts del bootcamp" },
-      { property: "og:description", content: "Los prompts de la clase, organizados por módulo y con reusos medidos." },
+      { title: "Banco de prompts y skills · AI Product Builder" },
+      { name: "description", content: "Los prompts y skills de la clase, en un solo sitio. Copia, reutiliza y descubre cuáles usa más la gente." },
+      { property: "og:title", content: "Banco de prompts y skills del bootcamp" },
+      { property: "og:description", content: "Los prompts y skills de la clase, organizados por módulo y con reusos medidos." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -42,6 +43,7 @@ function Index() {
   const [name, setName] = useName();
   const [module, setModule] = useState<string | null>(null);
   const [onlyMine, setOnlyMine] = useState(false);
+  const [kind, setKind] = useState<"prompt" | "skill" | null>(null);
   const ownedIdsFn = useServerFn(getOwnedPromptIds);
   const { data: ownedIds = [] } = useQuery({
     queryKey: ["owned-prompts", name],
@@ -64,7 +66,8 @@ function Index() {
   const prompts = data?.prompts ?? [];
   const stats = useMemo(() => reuseStats(prompts, data?.copies ?? []), [data]);
   const myPrompts = prompts.filter((p) => isPromptAuthor(p.author, name));
-  const scopedPrompts = onlyMine ? myPrompts : prompts;
+  const mineScope = onlyMine ? myPrompts : prompts;
+  const scopedPrompts = kind ? mineScope.filter((p) => (p.kind ?? "prompt") === kind) : mineScope;
   const visible = module ? scopedPrompts.filter((p) => p.module === module) : scopedPrompts;
   const perModule = useMemo(() => {
     const m = new Map<string, number>();
@@ -94,7 +97,7 @@ function Index() {
       <header className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-6">
         <div>
           <p className="text-sm uppercase tracking-widest text-muted-foreground">AI Product Builder · 2026</p>
-          <h1 className="font-display text-6xl leading-none md:text-7xl">Banco de prompts</h1>
+          <h1 className="font-display text-6xl leading-none md:text-7xl">Banco de prompts y skills</h1>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted-foreground">
@@ -105,14 +108,17 @@ function Index() {
       </header>
 
       <section className="grid grid-cols-3 gap-4 py-8">
-        <Stat value={stats.reuses} label="veces que alguien copió el prompt de otro" />
+        <Stat value={stats.reuses} label="veces que alguien copió un recurso de otra persona" />
         <Stat value={stats.reusers} label="personas que han reutilizado" />
-        <Stat value={`${pct}%`} label="de prompts reutilizados al menos una vez" />
+        <Stat value={`${pct}%`} label="de recursos reutilizados al menos una vez" />
       </section>
 
       <div className="mb-4 flex gap-2 border-b pb-4" role="group" aria-label="Vista de prompts">
         <Button variant={onlyMine ? "outline" : "default"} aria-pressed={!onlyMine} onClick={() => setOnlyMine(false)}>Banco de la clase</Button>
-        <Button variant={onlyMine ? "default" : "outline"} aria-pressed={onlyMine} onClick={() => setOnlyMine(true)}>Mis prompts ({myPrompts.length})</Button>
+        <Button variant={onlyMine ? "default" : "outline"} aria-pressed={onlyMine} onClick={() => setOnlyMine(true)}>Mis aportaciones ({myPrompts.length})</Button>
+      </div>
+      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Tipo de recurso">
+        {([null, "prompt", "skill"] as const).map((k) => <Button key={k ?? "all"} size="sm" variant={kind === k ? "default" : "outline"} aria-pressed={kind === k} onClick={() => setKind(k)}>{k === null ? "Todo" : k === "skill" ? "Skills" : "Prompts"} ({k === null ? mineScope.length : mineScope.filter((p) => (p.kind ?? "prompt") === k).length})</Button>)}
       </div>
       <nav className="flex flex-wrap gap-2 pb-6" aria-label="Módulos">
         {[null, ...MODULES].map((m) => (
@@ -123,21 +129,22 @@ function Index() {
       </nav>
 
       {visible.length === 0 ? (
-        <p className="py-16 text-center font-display text-3xl text-muted-foreground">{onlyMine ? (module ? "No has añadido prompts en este módulo." : "Todavía no has añadido ningún prompt.") : "Aún no hay prompts aquí. Sé el primero."}</p>
+        <p className="py-16 text-center font-display text-3xl text-muted-foreground">{onlyMine ? (module ? "No has añadido recursos en este módulo." : "Todavía no has añadido ningún recurso.") : "Aún no hay recursos aquí. Sé el primero."}</p>
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
           {visible.map((p) => (
             <article key={p.id} className="flex flex-col rounded-md border-2 border-foreground bg-card p-5 shadow-card">
               <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wider">
-                <span className="rounded-sm bg-accent px-2 py-0.5 text-accent-foreground">{p.module}</span>
+                <span className="rounded-sm bg-accent px-2 py-0.5 text-accent-foreground">{p.module} · {p.kind === "skill" ? "Skill" : "Prompt"}</span>
                 <span className="text-muted-foreground">{stats.perPrompt.get(p.id) ?? 0} reusos</span>
               </div>
               <h2 className="break-words font-display text-3xl leading-tight">{p.title}</h2>
               <p className="mb-4 break-words text-sm text-muted-foreground">Añadido por <span className="font-medium text-foreground">{p.author}</span></p>
-              <pre className="mb-4 max-h-48 flex-1 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-3 text-sm">{p.body}</pre>
-              <Button onClick={() => copy.mutate(p)} disabled={copy.isPending}>
-                <CopyIcon /> Copiar prompt
-              </Button>
+              {p.body && <pre className="mb-4 max-h-48 flex-1 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-3 text-sm">{p.body}</pre>}
+              {p.body && <Button onClick={() => copy.mutate(p)} disabled={copy.isPending}>
+                <CopyIcon /> {p.kind === "skill" ? "Copiar skill" : "Copiar prompt"}
+              </Button>}
+              {getAttachments(p.attachments).map((file) => <SkillDownload key={file.path} id={p.id} file={file} />)}
               {ownedIds.includes(p.id) && <div className="mt-3 flex justify-end gap-2 border-t pt-3"><NewPrompt author={name} prompt={p} /><DeletePrompt prompt={p} /></div>}
             </article>
           ))}
@@ -167,8 +174,8 @@ function NameGate({ onSave }: { onSave: (n: string) => void }) {
           if (v.trim()) onSave(v.trim().slice(0, 60));
         }}
       >
-        <h1 className="font-display text-5xl leading-none">Banco de prompts</h1>
-        <p className="mb-6 mt-2 text-muted-foreground">Los buenos prompts de la clase, sin perderse en notas sueltas. ¿Cómo te llamas?</p>
+        <h1 className="font-display text-5xl leading-none">Banco de prompts y skills</h1>
+        <p className="mb-6 mt-2 text-muted-foreground">Los prompts y skills de la clase, sin perderse en notas sueltas. ¿Cómo te llamas?</p>
         <Input autoFocus value={v} onChange={(e) => setV(e.target.value)} placeholder="Tu nombre" />
         <Button className="mt-4 w-full" type="submit">Entrar</Button>
       </form>
@@ -179,47 +186,59 @@ function NameGate({ onSave }: { onSave: (n: string) => void }) {
 function NewPrompt({ author, prompt }: { author: string; prompt?: Prompt }) {
   const qc = useQueryClient();
   const createFn = useServerFn(createPrompt);
-  const manageFn = useServerFn(managePrompt);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(prompt?.title ?? "");
   const [body, setBody] = useState(prompt?.body ?? "");
   const [module, setModule] = useState<string>(prompt?.module ?? MODULES[0] ?? "Otros");
+  const [kind, setKind] = useState<"prompt" | "skill">(prompt?.kind ?? "prompt");
+  const [files, setFiles] = useState<File[]>([]);
+  const [removed, setRemoved] = useState<string[]>([]);
+  const existingFiles = getAttachments(prompt?.attachments).filter((file) => !removed.includes(file.path));
+  const hasContent = Boolean(body.trim()) || (kind === "skill" && files.length + existingFiles.length > 0);
   const add = useMutation({
     mutationFn: async () => {
-      const fields = { title: title.trim(), body: body.trim(), module };
-      if (prompt) await manageFn({ data: { ...fields, id: prompt.id, action: "edit" } });
-      else await createFn({ data: { ...fields, author } });
+      const data = new FormData();
+      for (const [key, value] of Object.entries({ title: title.trim(), body: body.trim(), module, kind, author })) data.set(key, value);
+      if (prompt) data.set("id", prompt.id);
+      data.set("removed", JSON.stringify(removed));
+      for (const file of files) data.append("files", file);
+      await createFn({ data });
     },
     onSuccess: () => {
-      toast.success(prompt ? "Cambios guardados" : "Prompt guardado");
-      if (!prompt) { setTitle(""); setBody(""); }
+      toast.success(prompt ? "Cambios guardados" : "Recurso guardado");
+      if (!prompt) { setTitle(""); setBody(""); setKind("prompt"); }
+      setFiles([]); setRemoved([]);
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["bank"] });
       qc.invalidateQueries({ queryKey: ["owned-prompts"] });
     },
-    onError: () => toast.error("No se pudo guardar"),
+    onError: (error) => toast.error(error.message || "No se pudo guardar"),
   });
   return (
     <Dialog open={open} onOpenChange={(value) => {
       if (add.isPending) return;
-      if (value && prompt) { setTitle(prompt.title); setBody(prompt.body); setModule(prompt.module); }
+      if (value && prompt) { setTitle(prompt.title); setBody(prompt.body); setModule(prompt.module); setKind(prompt.kind ?? "prompt"); }
+      if (value) { setFiles([]); setRemoved([]); }
       setOpen(value);
     }}>
       <DialogTrigger asChild>
-        {prompt ? <Button variant="outline" size="icon" title="Editar prompt" aria-label={`Editar ${prompt.title}`}><Pencil /></Button> : <Button><Plus /> Añadir prompt</Button>}
+        {prompt ? <Button variant="outline" size="icon" title="Editar prompt" aria-label={`Editar ${prompt.title}`}><Pencil /></Button> : <Button><Plus /> Añadir recurso</Button>}
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display text-3xl font-normal">{prompt ? "Editar prompt" : "Nuevo prompt"}</DialogTitle>
+          <DialogTitle className="font-display text-3xl font-normal">{prompt ? "Editar recurso" : "Nuevo recurso"}</DialogTitle>
           <DialogDescription className="sr-only">Título, módulo y contenido del prompt</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim() && body.trim()) add.mutate();
+            if (title.trim() && hasContent) add.mutate();
           }}
         >
+          <div className="flex gap-2" role="group" aria-label="Tipo">
+            {(["prompt", "skill"] as const).map((k) => <Button key={k} type="button" size="sm" disabled={add.isPending} variant={kind === k ? "default" : "outline"} aria-pressed={kind === k} onClick={() => { setKind(k); if (k === "prompt") { setFiles([]); setRemoved(getAttachments(prompt?.attachments).map((file) => file.path)); } }}>{k === "skill" ? "Skill" : "Prompt"}</Button>)}
+          </div>
           <Input aria-label="Título" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (p. ej. Entrevista de discovery)" maxLength={120} disabled={add.isPending} />
           <div className="flex flex-wrap gap-2">
             {MODULES.map((m) => (
@@ -228,10 +247,20 @@ function NewPrompt({ author, prompt }: { author: string; prompt?: Prompt }) {
               </Button>
             ))}
           </div>
-          <Textarea aria-label="Contenido del prompt" required disabled={add.isPending} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Pega aquí tu prompt…" rows={8} maxLength={8000} />
+          <Textarea aria-label="Contenido del recurso" required={kind === "prompt"} disabled={add.isPending} value={body} onChange={(e) => setBody(e.target.value)} placeholder={kind === "skill" ? "Instrucciones de la skill…" : "Pega aquí tu prompt…"} rows={8} maxLength={8000} />
+          {kind === "skill" && <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={prompt ? `files-${prompt.id}` : "new-files"}><Paperclip className="mr-1 inline size-4" /> Archivos (hasta 5, 10 MB por archivo)</label>
+            <Input id={prompt ? `files-${prompt.id}` : "new-files"} aria-label="Archivos de la skill" type="file" multiple accept=".md,.txt,.zip,.json,.yaml,.yml,.pdf,.csv" disabled={add.isPending} onChange={(e) => {
+              const selected = Array.from(e.target.files ?? []);
+              try { selected.forEach(validateFile); if (selected.length + files.length + existingFiles.length > 5) throw new Error("Puedes adjuntar hasta 5 archivos."); setFiles([...files, ...selected]); } catch (error) { toast.error(error instanceof Error ? error.message : "Archivo inválido"); }
+              e.target.value = "";
+            }} />
+            {existingFiles.map((file) => <div key={file.path} className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 break-all">{file.name}</span><Button type="button" variant="ghost" size="icon" aria-label={`Quitar ${file.name}`} disabled={add.isPending} onClick={() => setRemoved([...removed, file.path])}><X /></Button></div>)}
+            {files.map((file, i) => <div key={i} className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 break-all">{file.name}</span><Button type="button" variant="ghost" size="icon" aria-label={`Quitar ${file.name}`} disabled={add.isPending} onClick={() => setFiles(files.filter((_, index) => index !== i))}><X /></Button></div>)}
+          </div>}
           <div className="flex gap-2">
             <Button type="button" variant="outline" disabled={add.isPending} onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" className="flex-1" disabled={add.isPending || !title.trim() || !body.trim()}>{add.isPending ? "Guardando…" : prompt ? "Guardar cambios" : "Guardar"}</Button>
+            <Button type="submit" className="flex-1" disabled={add.isPending || !title.trim() || !hasContent}>{add.isPending ? "Guardando…" : prompt ? "Guardar cambios" : "Guardar"}</Button>
           </div>
         </form>
       </DialogContent>
@@ -257,13 +286,26 @@ function DeletePrompt({ prompt }: { prompt: Prompt }) {
     <DialogTrigger asChild><Button variant="outline" size="icon" className="text-destructive" title="Eliminar prompt" aria-label={`Eliminar ${prompt.title}`}><Trash2 /></Button></DialogTrigger>
     <DialogContent>
       <DialogHeader>
-        <DialogTitle className="font-display text-3xl font-normal">¿Eliminar este prompt?</DialogTitle>
-        <DialogDescription className="break-words">«{prompt.title}» se eliminará del banco junto con sus reusos. No se puede deshacer.</DialogDescription>
+        <DialogTitle className="font-display text-3xl font-normal">¿Eliminar este recurso?</DialogTitle>
+        <DialogDescription className="break-words">«{prompt.title}» se eliminará del banco junto con sus archivos y reusos. No se puede deshacer.</DialogDescription>
       </DialogHeader>
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => setOpen(false)} disabled={remove.isPending}>Cancelar</Button>
-        <Button variant="destructive" onClick={() => remove.mutate()} disabled={remove.isPending}><Trash2 />{remove.isPending ? "Eliminando…" : "Eliminar prompt"}</Button>
+        <Button variant="destructive" onClick={() => remove.mutate()} disabled={remove.isPending}><Trash2 />{remove.isPending ? "Eliminando…" : "Eliminar recurso"}</Button>
       </div>
     </DialogContent>
   </Dialog>;
+}
+
+function SkillDownload({ id, file }: { id: string; file: { path: string; name: string; size: number } }) {
+  const downloadFn = useServerFn(downloadSkillFile);
+  const download = useMutation({
+    mutationFn: async () => {
+      const result = await downloadFn({ data: { id, path: file.path } });
+      return new URL(result.path, import.meta.env.VITE_SUPABASE_URL).href;
+    },
+    onSuccess: (url) => { window.location.assign(url); },
+    onError: () => toast.error("No se pudo descargar el archivo"),
+  });
+  return <Button variant="outline" className="mt-2 h-auto min-h-9 justify-start whitespace-normal text-left" disabled={download.isPending} onClick={() => download.mutate()}><Download className="shrink-0" /><span className="min-w-0 break-all">{file.name}</span><span className="ml-auto shrink-0 text-xs text-muted-foreground">{Math.max(1, Math.round(file.size / 1024))} KB</span></Button>;
 }

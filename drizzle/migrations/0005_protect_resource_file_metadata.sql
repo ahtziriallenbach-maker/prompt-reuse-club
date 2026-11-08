@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "anyone adds prompts" ON public.prompts;
+CREATE POLICY "service manages skill files" ON storage.objects FOR ALL TO service_role USING (bucket_id = 'skill-files') WITH CHECK (bucket_id = 'skill-files');

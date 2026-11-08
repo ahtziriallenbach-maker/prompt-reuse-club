@@ -31,3 +31,4 @@ use the editor.
 
 - Reuse metric lives in src/lib/reuse.ts: a copy counts only when copier name differs from author (case-insensitive); keeps the class question measurable in one tested place.
 - Prompt mutations use server functions with a random HttpOnly browser capability; only its hash is stored in the private prompt_ownership table, preventing name impersonation from authorizing edits or deletions.
+- Prompts and skills share the resource collection and ownership boundary; attachment metadata is server-managed and files use private Storage with short-lived download URLs to prevent public uploads or arbitrary file access.
