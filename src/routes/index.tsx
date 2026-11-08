@@ -222,12 +222,12 @@ function NewPrompt({ author, prompt }: { author: string; prompt?: Prompt }) {
       setOpen(value);
     }}>
       <DialogTrigger asChild>
-        {prompt ? <Button variant="outline" size="icon" title="Editar prompt" aria-label={`Editar ${prompt.title}`}><Pencil /></Button> : <Button><Plus /> Añadir recurso</Button>}
+        {prompt ? <Button variant="outline" size="icon" title="Editar recurso" aria-label={`Editar ${prompt.title}`}><Pencil /></Button> : <Button><Plus /> Añadir recurso</Button>}
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-3xl font-normal">{prompt ? "Editar recurso" : "Nuevo recurso"}</DialogTitle>
-          <DialogDescription className="sr-only">Título, módulo y contenido del prompt</DialogDescription>
+          <DialogDescription className="sr-only">Título, módulo, texto y archivos del recurso</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"
@@ -276,14 +276,14 @@ function DeletePrompt({ prompt }: { prompt: Prompt }) {
     mutationFn: () => manageFn({ data: { action: "delete", id: prompt.id } }),
     onSuccess: () => {
       setOpen(false);
-      toast.success("Prompt eliminado");
+      toast.success("Recurso eliminado");
       qc.invalidateQueries({ queryKey: ["bank"] });
       qc.invalidateQueries({ queryKey: ["owned-prompts"] });
     },
-    onError: () => toast.error("No se pudo eliminar el prompt"),
+    onError: () => toast.error("No se pudo eliminar el recurso"),
   });
   return <Dialog open={open} onOpenChange={(value) => { if (!remove.isPending) setOpen(value); }}>
-    <DialogTrigger asChild><Button variant="outline" size="icon" className="text-destructive" title="Eliminar prompt" aria-label={`Eliminar ${prompt.title}`}><Trash2 /></Button></DialogTrigger>
+    <DialogTrigger asChild><Button variant="outline" size="icon" className="text-destructive" title="Eliminar recurso" aria-label={`Eliminar ${prompt.title}`}><Trash2 /></Button></DialogTrigger>
     <DialogContent>
       <DialogHeader>
         <DialogTitle className="font-display text-3xl font-normal">¿Eliminar este recurso?</DialogTitle>
@@ -302,7 +302,7 @@ function SkillDownload({ id, file }: { id: string; file: { path: string; name: s
   const download = useMutation({
     mutationFn: async () => {
       const result = await downloadFn({ data: { id, path: file.path } });
-      return new URL(result.path, import.meta.env.VITE_SUPABASE_URL).href;
+      return new URL(result.path, import.meta.env['VITE_SUPABASE_URL']).href;
     },
     onSuccess: (url) => { window.location.assign(url); },
     onError: () => toast.error("No se pudo descargar el archivo"),
