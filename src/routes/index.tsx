@@ -55,10 +55,6 @@ function Landing() {
           </article>
         ))}
       </section>
-      <section className="border-t-2 border-foreground py-10">
-        <p className="text-sm uppercase tracking-widest text-muted-foreground">La pregunta</p>
-        <p className="mt-2 font-display text-4xl">¿Alguien vuelve a usar el prompt de otro?</p>
-      </section>
     </main>
   );
 }
