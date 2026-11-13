@@ -16,10 +16,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 export const Route = createFileRoute("/_authenticated/banco")({
   head: () => ({
     meta: [
-      { title: "Banco de la clase · AI Product Builder" },
-      { name: "description", content: "Los prompts y skills de la clase, en un solo sitio. Copia, reutiliza y descubre cuáles usa más la gente." },
-      { property: "og:title", content: "Banco de prompts y skills del bootcamp" },
-      { property: "og:description", content: "Los prompts y skills de la clase, organizados por módulo y con reusos medidos." },
+      { title: "Banco de prompts y skills para PMs" },
+      { name: "description", content: "Prompts y skills para Product Managers, en un solo sitio. Copia, reutiliza y descubre cuáles usa más la gente." },
+      { property: "og:title", content: "Banco de prompts y skills para PMs" },
+      { property: "og:description", content: "Prompts y skills para PMs, organizados por fase de trabajo y con reusos medidos." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -100,7 +100,7 @@ function Index() {
     <main className="mx-auto max-w-5xl px-5 py-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-6">
         <div>
-          <p className="text-sm uppercase tracking-widest text-muted-foreground">AI Product Builder · 2026</p>
+          <p className="text-sm uppercase tracking-widest text-muted-foreground">Para Product Managers</p>
           <h1 className="font-display text-6xl leading-none md:text-7xl">Banco de prompts y skills</h1>
         </div>
         <div className="flex items-center gap-3 text-sm">
@@ -119,13 +119,13 @@ function Index() {
       </section>
 
       <div className="mb-4 flex gap-2 border-b pb-4" role="group" aria-label="Vista de prompts">
-        <Button variant={onlyMine ? "outline" : "default"} aria-pressed={!onlyMine} onClick={() => setOnlyMine(false)}>Banco de la clase</Button>
+        <Button variant={onlyMine ? "outline" : "default"} aria-pressed={!onlyMine} onClick={() => setOnlyMine(false)}>Banco completo</Button>
         <Button variant={onlyMine ? "default" : "outline"} aria-pressed={onlyMine} onClick={() => setOnlyMine(true)}>Mis aportaciones ({myPrompts.length})</Button>
       </div>
       <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Tipo de recurso">
         {([null, "prompt", "skill"] as const).map((k) => <Button key={k ?? "all"} size="sm" variant={kind === k ? "default" : "outline"} aria-pressed={kind === k} onClick={() => setKind(k)}>{k === null ? "Todo" : k === "skill" ? "Skills" : "Prompts"} ({k === null ? mineScope.length : mineScope.filter((p) => (p.kind ?? "prompt") === k).length})</Button>)}
       </div>
-      <nav className="flex flex-wrap gap-2 pb-6" aria-label="Módulos">
+      <nav className="flex flex-wrap gap-2 pb-6" aria-label="Fases de trabajo">
         {[null, ...MODULES].map((m) => (
           <Button key={m ?? "all"} size="sm" variant={module === m ? "default" : "outline"} onClick={() => setModule(m)}>
             {m ?? "Todos"} <span className="opacity-60">({m ? (perModule.get(m) ?? 0) : scopedPrompts.length})</span>
@@ -134,7 +134,7 @@ function Index() {
       </nav>
 
       {visible.length === 0 ? (
-        <p className="py-16 text-center font-display text-3xl text-muted-foreground">{onlyMine ? (module ? "No has añadido recursos en este módulo." : "Todavía no has añadido ningún recurso.") : "Aún no hay recursos aquí. Sé el primero."}</p>
+        <p className="py-16 text-center font-display text-3xl text-muted-foreground">{onlyMine ? (module ? "No has añadido recursos en esta fase." : "Todavía no has añadido ningún recurso.") : "Aún no hay recursos aquí. Sé el primero."}</p>
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
           {visible.map((p) => (
@@ -211,7 +211,7 @@ function NewPrompt({ prompt }: { prompt?: Prompt }) {
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-3xl font-normal">{prompt ? "Editar recurso" : "Nuevo recurso"}</DialogTitle>
-          <DialogDescription className="sr-only">Título, módulo, texto y archivos del recurso</DialogDescription>
+          <DialogDescription className="sr-only">Título, fase, texto y archivos del recurso</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"

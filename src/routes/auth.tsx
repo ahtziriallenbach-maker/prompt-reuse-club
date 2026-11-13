@@ -11,9 +11,9 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Entrar · Banco de prompts y skills" },
-      { name: "description", content: "Crea tu cuenta o entra al banco de prompts y skills del bootcamp AI Product Builder." },
+      { name: "description", content: "Crea tu cuenta o entra al banco de prompts y skills para Product Managers." },
       { property: "og:title", content: "Entrar al banco de prompts y skills" },
-      { property: "og:description", content: "Regístrate con tu email para ver y compartir los recursos de la clase." },
+      { property: "og:description", content: "Regístrate con tu email para ver y compartir prompts y skills con otros PMs." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -63,7 +63,7 @@ function AuthPage() {
         <h1 className="mt-3 font-display text-5xl leading-none">{mode === "signup" ? "Crea tu cuenta" : mode === "forgot" ? "Recupera tu contraseña" : "Entra"}</h1>
         {sent ? <p className="mt-6 text-muted-foreground">{sent}</p> : (
           <form className="mt-6 space-y-3" onSubmit={submit}>
-            {mode === "signup" && <Input aria-label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre (lo verá la clase)" maxLength={60} />}
+            {mode === "signup" && <Input aria-label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre (lo verán otros PMs)" maxLength={60} />}
             <Input aria-label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" autoComplete="email" />
             {mode !== "forgot" && <Input aria-label="Contraseña" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" autoComplete={mode === "signup" ? "new-password" : "current-password"} />}
             <Button className="w-full" type="submit" disabled={busy}>{busy ? "Un momento…" : mode === "signup" ? "Crear cuenta" : mode === "forgot" ? "Enviar enlace" : "Entrar"}</Button>
