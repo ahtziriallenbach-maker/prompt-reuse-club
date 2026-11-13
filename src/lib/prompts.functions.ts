@@ -56,7 +56,7 @@ export const createPrompt = createServerFn({ method: "POST" })
 
 export const managePrompt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ action: z.literal("delete"), id: z.string().uuid() }))
+  .inputValidator((input: unknown) => z.object({ action: z.literal("delete"), id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const existing = await supabaseAdmin.from("prompts").select("attachments, owner_id").eq("id", data.id).single();
@@ -71,7 +71,7 @@ export const managePrompt = createServerFn({ method: "POST" })
 
 export const downloadSkillFile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ id: z.string().uuid(), path: z.string().max(300) }))
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid(), path: z.string().max(300) }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const resource = await supabaseAdmin.from("prompts").select("attachments, kind").eq("id", data.id).single();
