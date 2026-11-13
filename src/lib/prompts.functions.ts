@@ -1,54 +1,32 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getCookie, getRequest, setCookie, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { browserOwnerHash, requirePromptOwnership } from "./prompt-ownership";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requirePromptOwnership } from "./prompt-ownership";
 import { resourceFields, getAttachments, validateFile, validateResourceContent } from "./resources";
 
-async function ownerHash(create: boolean) {
-  setResponseHeader("Cache-Control", "no-store");
-  let token = getCookie("pb-owner");
-  if (!token || !/^[a-f0-9-]{72}$/.test(token)) {
-    if (!create) return null;
-    token = crypto.randomUUID() + crypto.randomUUID();
-    const secure = new URL(getRequest().url).protocol === "https:";
-    setCookie("pb-owner", token, {
-      httpOnly: true, secure,
-      sameSite: secure ? "none" : "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
-    });
-  }
-  return browserOwnerHash(token);
+async function authorName(supabase: any, userId: string) {
+  const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+  return (data?.display_name as string | undefined) ?? "Sin nombre";
 }
 
-export const getOwnedPromptIds = createServerFn({ method: "POST" }).handler(async () => {
-  const hash = await ownerHash(false);
-  if (!hash) return [];
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.from("prompt_ownership").select("prompt_id").eq("owner_hash", hash);
-  if (error) throw new Error("No se pudieron cargar tus permisos.");
-  return data.map((row) => row.prompt_id);
-});
-
 export const createPrompt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: FormData) => {
     if (!(input instanceof FormData)) throw new Error("Formulario inválido.");
     return input;
   })
-  .handler(async ({ data }) => {
-    const fields = resourceFields.extend({ author: z.string().trim().min(1).max(60) }).parse(Object.fromEntries(data));
+  .handler(async ({ data, context }) => {
+    const fields = resourceFields.parse(Object.fromEntries(data));
     const id = z.string().uuid().optional().parse(data.get("id") || undefined);
     const removed = z.array(z.string()).parse(JSON.parse(String(data.get("removed") || "[]")));
     const files = data.getAll("files").filter((value): value is File => value instanceof File && value.size > 0);
     files.forEach(validateFile);
-    const hash = await ownerHash(true);
-    if (!hash) throw new Error("No se pudo identificar este navegador.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let previous = getAttachments([]);
     if (id) {
-      const ownership = await supabaseAdmin.from("prompt_ownership").select("owner_hash").eq("prompt_id", id).eq("owner_hash", hash).maybeSingle();
-      if (ownership.error) throw new Error("No se pudo comprobar el permiso.");
-      requirePromptOwnership(ownership.data?.owner_hash, hash);
-      const existing = await supabaseAdmin.from("prompts").select("attachments").eq("id", id).single();
+      const existing = await supabaseAdmin.from("prompts").select("attachments, owner_id").eq("id", id).single();
       if (existing.error) throw new Error("No se encontró el recurso.");
+      requirePromptOwnership(existing.data.owner_id, context.userId);
       previous = getAttachments(existing.data.attachments);
     }
     const kept = previous.filter((file) => !removed.includes(file.path));
@@ -62,18 +40,11 @@ export const createPrompt = createServerFn({ method: "POST" })
         if (upload.error) throw new Error("No se pudo subir el archivo.");
         uploaded.push({ path, name: file.name, size: file.size });
       }
-      const payload = { ...fields, attachments: [...kept, ...uploaded] };
+      const attachments = [...kept, ...uploaded];
       const result = id
-        ? await supabaseAdmin.from("prompts").update({ title: fields.title, body: fields.body, module: fields.module, kind: fields.kind, attachments: payload.attachments }).eq("id", id)
-        : await supabaseAdmin.from("prompts").insert({ ...payload, id: resourceId });
+        ? await supabaseAdmin.from("prompts").update({ ...fields, attachments }).eq("id", id)
+        : await supabaseAdmin.from("prompts").insert({ ...fields, attachments, id: resourceId, owner_id: context.userId, author: await authorName(context.supabase, context.userId) });
       if (result.error) throw new Error("No se pudo guardar el recurso.");
-      if (!id) {
-        const ownership = await supabaseAdmin.from("prompt_ownership").insert({ prompt_id: resourceId, owner_hash: hash });
-        if (ownership.error) {
-          await supabaseAdmin.from("prompts").delete().eq("id", resourceId);
-          throw new Error("No se pudo guardar el recurso.");
-        }
-      }
     } catch (error) {
       if (uploaded.length) await supabaseAdmin.storage.from("skill-files").remove(uploaded.map((file) => file.path));
       throw error;
@@ -84,32 +55,22 @@ export const createPrompt = createServerFn({ method: "POST" })
   });
 
 export const managePrompt = createServerFn({ method: "POST" })
-  .inputValidator(z.discriminatedUnion("action", [
-    resourceFields.extend({ action: z.literal("edit"), id: z.string().uuid() }),
-    z.object({ action: z.literal("delete"), id: z.string().uuid() }),
-  ]))
-  .handler(async ({ data }) => {
-    const hash = await ownerHash(false);
-    if (!hash) throw new Error("Este prompt no se puede gestionar desde este navegador.");
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ action: z.literal("delete"), id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const ownership = await supabaseAdmin.from("prompt_ownership").select("owner_hash").eq("prompt_id", data.id).eq("owner_hash", hash).maybeSingle();
-    if (ownership.error) throw new Error("No se pudo comprobar el permiso.");
-    requirePromptOwnership(ownership.data?.owner_hash, hash);
-    const existing = await supabaseAdmin.from("prompts").select("attachments").eq("id", data.id).single();
+    const existing = await supabaseAdmin.from("prompts").select("attachments, owner_id").eq("id", data.id).single();
     if (existing.error) throw new Error("No se encontró el recurso.");
-    if (data.action === "edit") validateResourceContent(data.kind, data.body, getAttachments(existing.data.attachments).length);
-    const result = data.action === "delete"
-      ? await supabaseAdmin.from("prompts").delete().eq("id", data.id).select("id").single()
-      : await supabaseAdmin.from("prompts").update({ title: data.title, body: data.body, module: data.module, kind: data.kind }).eq("id", data.id).select("id").single();
-    if (result.error) throw new Error("No se pudo guardar el cambio.");
-    if (data.action === "delete") {
-      const files = getAttachments(existing.data.attachments);
-      if (files.length) await supabaseAdmin.storage.from("skill-files").remove(files.map((file) => file.path));
-    }
-    return { id: result.data.id };
+    requirePromptOwnership(existing.data.owner_id, context.userId);
+    const result = await supabaseAdmin.from("prompts").delete().eq("id", data.id);
+    if (result.error) throw new Error("No se pudo eliminar.");
+    const files = getAttachments(existing.data.attachments);
+    if (files.length) await supabaseAdmin.storage.from("skill-files").remove(files.map((file) => file.path));
+    return { id: data.id };
   });
 
 export const downloadSkillFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ id: z.string().uuid(), path: z.string().max(300) }))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
