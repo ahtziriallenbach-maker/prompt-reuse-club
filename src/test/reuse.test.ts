@@ -17,4 +17,9 @@ describe("reuseStats", () => {
     expect(s.reusers).toBe(2);
     expect(s.reusedPrompts).toBe(2);
   });
+  it("con cuentas, compara por cuenta y no por nombre", () => {
+    const prompt = { ...p("1", "Ana"), owner_id: "u1" };
+    expect(reuseStats([prompt], [{ prompt_id: "1", copier: "Ana", copier_id: "u2" }]).reuses).toBe(1);
+    expect(reuseStats([prompt], [{ prompt_id: "1", copier: "Otra", copier_id: "u1" }]).reuses).toBe(0);
+  });
 });
