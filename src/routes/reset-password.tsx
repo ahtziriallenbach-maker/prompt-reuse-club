@@ -30,7 +30,7 @@ function ResetPassword() {
         setBusy(true);
         const { error } = await supabase.auth.updateUser({ password });
         setBusy(false);
-        if (error) return toast.error("El enlace ha caducado o no es válido. Pide uno nuevo.");
+        if (error) { toast.error("El enlace ha caducado o no es válido. Pide uno nuevo."); return; }
         toast.success("Contraseña actualizada");
         navigate({ to: "/banco" });
       }}>
