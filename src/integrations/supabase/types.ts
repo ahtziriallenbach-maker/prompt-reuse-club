@@ -14,21 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
       prompt_copies: {
         Row: {
           copier: string
+          copier_id: string | null
           created_at: string
           id: string
           prompt_id: string
         }
         Insert: {
           copier: string
+          copier_id?: string | null
           created_at?: string
           id?: string
           prompt_id: string
         }
         Update: {
           copier?: string
+          copier_id?: string | null
           created_at?: string
           id?: string
           prompt_id?: string
@@ -75,6 +96,7 @@ export type Database = {
           id: string
           kind: string
           module: string
+          owner_id: string | null
           title: string
         }
         Insert: {
@@ -85,6 +107,7 @@ export type Database = {
           id?: string
           kind?: string
           module: string
+          owner_id?: string | null
           title: string
         }
         Update: {
@@ -95,6 +118,7 @@ export type Database = {
           id?: string
           kind?: string
           module?: string
+          owner_id?: string | null
           title?: string
         }
         Relationships: []

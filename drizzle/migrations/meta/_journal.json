@@ -43,6 +43,13 @@
       "when": 1794143317631,
       "tag": "0005_protect_resource_file_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794590443607,
+      "tag": "0006_accounts_and_profiles",
+      "breakpoints": true
     }
   ]
 }
