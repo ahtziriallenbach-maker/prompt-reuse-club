@@ -1,7 +1,7 @@
 export type Prompt = { id: string; author: string; title: string; body: string; module: string; created_at: string; kind?: "prompt" | "skill"; attachments?: unknown; owner_id?: string | null };
 export type Copy = { prompt_id: string; copier: string; copier_id?: string | null };
 
-export const MODULES = ["M1 · Fundamentos de IA", "M2 · Productividad", "M3 · Tech PM", "M4 · Product Maker", "M5 · Demo Day + Cierre", "Otros"];
+export const MODULES = ["Discovery", "Estrategia", "Especificación", "Delivery", "Métricas", "Comunicación", "Otros"];
 
 const norm = (s: string) => s.trim().toLowerCase();
 
