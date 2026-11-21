@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# Prompt Reuse Club
+
+quiero construiri un Banco de prompts del bootcamp de producto que estoy haciendo . Quién: la propia clase. Problema: cada uno guarda sus prompts en notas sueltas y los buenos se pierden. Pregunta: ¿alguien vuelve a usar el prompt de otro?
 
 This project was built with [Lovable](https://lovable.dev).
 
+**Live app**: https://prompt-reuse-club.lovable.app
+
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/35e95435-4f1d-4ffd-ae2e-27836c8259f6).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +24,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
