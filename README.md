@@ -1,6 +1,6 @@
 # Prompt Reuse Club
 
-quiero construiri un Banco de prompts del bootcamp de producto que estoy haciendo . Quién: la propia clase. Problema: cada uno guarda sus prompts en notas sueltas y los buenos se pierden. Pregunta: ¿alguien vuelve a usar el prompt de otro?
+Problema: cada uno guarda sus prompts en notas sueltas y los buenos se pierden. Pregunta: ¿alguien vuelve a usar el prompt de otro?
 
 This project was built with [Lovable](https://lovable.dev).
 
