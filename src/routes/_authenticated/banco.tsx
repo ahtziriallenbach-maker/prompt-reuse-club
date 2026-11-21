@@ -9,6 +9,7 @@ import { getAttachments, validateFile } from "@/lib/resources";
 import { supabase } from "@/integrations/supabase/client";
 import { MODULES, reuseStats, type Copy, type Prompt } from "@/lib/reuse";
 import { searchResources, sortResources } from "@/lib/resource-search";
+import { extractVariables, fillVariables } from "@/lib/prompt-variables";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,8 +79,8 @@ function Index() {
   }, [scopedPrompts]);
 
   const copy = useMutation({
-    mutationFn: async (p: Prompt) => {
-      await navigator.clipboard.writeText(p.body);
+    mutationFn: async ({ p, text }: { p: Prompt; text: string }) => {
+      await navigator.clipboard.writeText(text);
       const { error } = await supabase.from("prompt_copies").insert({ prompt_id: p.id, copier: name, copier_id: userId });
       if (error) throw error;
     },
@@ -168,9 +169,9 @@ function Index() {
               <h2 className="break-words font-display text-3xl leading-tight">{p.title}</h2>
               <p className="mb-4 break-words text-sm text-muted-foreground">Añadido por <span className="font-medium text-foreground">{p.author}</span></p>
               {p.body && <pre className="mb-4 max-h-48 flex-1 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-3 text-sm">{p.body}</pre>}
-              {p.body && <Button onClick={() => copy.mutate(p)} disabled={copy.isPending}>
+              {p.body && (extractVariables(p.body).length ? <FillAndCopy prompt={p} pending={copy.isPending} onCopy={(text) => copy.mutate({ p, text })} /> : <Button onClick={() => copy.mutate({ p, text: p.body })} disabled={copy.isPending}>
                 <CopyIcon /> {p.kind === "skill" ? "Copiar skill" : "Copiar prompt"}
-              </Button>}
+              </Button>)}
               {getAttachments(p.attachments).map((file) => <SkillDownload key={file.path} id={p.id} file={file} />)}
               {userId && p.owner_id === userId && <div className="mt-3 flex justify-end gap-2 border-t pt-3"><NewPrompt prompt={p} /><DeletePrompt prompt={p} /></div>}
             </article>
@@ -313,4 +314,25 @@ function SkillDownload({ id, file }: { id: string; file: { path: string; name: s
     onError: () => toast.error("No se pudo descargar el archivo"),
   });
   return <Button variant="outline" className="mt-2 h-auto min-h-9 justify-start whitespace-normal text-left" disabled={download.isPending} onClick={() => download.mutate()}><Download className="shrink-0" /><span className="min-w-0 break-all">{file.name}</span><span className="ml-auto shrink-0 text-xs text-muted-foreground">{Math.max(1, Math.round(file.size / 1024))} KB</span></Button>;
+}
+
+function FillAndCopy({ prompt, pending, onCopy }: { prompt: Prompt; pending: boolean; onCopy: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const vars = extractVariables(prompt.body);
+  const result = fillVariables(prompt.body, values);
+  return <Dialog open={open} onOpenChange={setOpen}>
+    <DialogTrigger asChild><Button><Pencil /> Rellenar y copiar ({vars.length} {vars.length === 1 ? "hueco" : "huecos"})</Button></DialogTrigger>
+    <DialogContent className="max-h-[90dvh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="font-display text-3xl font-normal">Adapta «{prompt.title}»</DialogTitle>
+        <DialogDescription>Completa los huecos con tu contexto. Los que dejes vacíos se copian tal cual.</DialogDescription>
+      </DialogHeader>
+      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); onCopy(result); setOpen(false); }}>
+        {vars.map((v) => <label key={v} className="block text-sm font-medium">{v}<Input className="mt-1" value={values[v] ?? ""} onChange={(e) => setValues({ ...values, [v]: e.target.value })} /></label>)}
+        <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-muted p-3 text-sm">{result}</pre>
+        <Button type="submit" className="w-full" disabled={pending}><CopyIcon /> Copiar versión adaptada</Button>
+      </form>
+    </DialogContent>
+  </Dialog>;
 }
