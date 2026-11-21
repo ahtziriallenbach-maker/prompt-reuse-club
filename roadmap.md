@@ -4,3 +4,5 @@
 - [x] Add Mis prompts view and edit/delete dialogs.
 - [x] Test ownership restrictions and verify create/edit/delete on desktop and mobile.
 - [x] Clearly show the name of the person who added each prompt.
+- [x] Add accent-insensitive resource search and ordering by reuse with unit tests.
+- [x] Verify signed-in search, combined filters and clearing on desktop and mobile.

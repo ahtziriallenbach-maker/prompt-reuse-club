@@ -2,12 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { LogOut, Copy as CopyIcon, Plus, Pencil, Trash2, Download, Paperclip, X } from "lucide-react";
+import { LogOut, Copy as CopyIcon, Plus, Pencil, Trash2, Download, Paperclip, X, Search, TrendingUp, Clock } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { createPrompt, managePrompt, downloadSkillFile } from "@/lib/prompts.functions";
 import { getAttachments, validateFile } from "@/lib/resources";
 import { supabase } from "@/integrations/supabase/client";
 import { MODULES, reuseStats, type Copy, type Prompt } from "@/lib/reuse";
+import { searchResources, sortResources } from "@/lib/resource-search";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 export const Route = createFileRoute("/_authenticated/banco")({
   head: () => ({
     meta: [
-      { title: "Banco de prompts y skills para PMs" },
+      { title: "Explorar recursos · Banco de prompts y skills para PMs" },
       { name: "description", content: "Prompts y skills para Product Managers, en un solo sitio. Copia, reutiliza y descubre cuáles usa más la gente." },
       { property: "og:title", content: "Banco de prompts y skills para PMs" },
       { property: "og:description", content: "Prompts y skills para PMs, organizados por fase de trabajo y con reusos medidos." },
@@ -48,6 +49,8 @@ function Index() {
   const [module, setModule] = useState<string | null>(null);
   const [onlyMine, setOnlyMine] = useState(false);
   const [kind, setKind] = useState<"prompt" | "skill" | null>(null);
+  const [search, setSearch] = useState("");
+  const [order, setOrder] = useState<"recent" | "reused">("recent");
 
   const { data } = useQuery({
     queryKey: ["bank"],
@@ -64,9 +67,10 @@ function Index() {
   const prompts = data?.prompts ?? [];
   const stats = useMemo(() => reuseStats(prompts, data?.copies ?? []), [data]);
   const myPrompts = prompts.filter((p) => userId && p.owner_id === userId);
-  const mineScope = onlyMine ? myPrompts : prompts;
+  const searchedPrompts = useMemo(() => searchResources(prompts, search), [prompts, search]);
+  const mineScope = onlyMine ? searchedPrompts.filter((p) => p.owner_id === userId) : searchedPrompts;
   const scopedPrompts = kind ? mineScope.filter((p) => (p.kind ?? "prompt") === kind) : mineScope;
-  const visible = module ? scopedPrompts.filter((p) => p.module === module) : scopedPrompts;
+  const visible = sortResources(module ? scopedPrompts.filter((p) => p.module === module) : scopedPrompts, order, stats.perPrompt);
   const perModule = useMemo(() => {
     const m = new Map<string, number>();
     for (const p of scopedPrompts) m.set(p.module, (m.get(p.module) ?? 0) + 1);
@@ -118,7 +122,15 @@ function Index() {
         <Stat value={`${pct}%`} label="de recursos reutilizados al menos una vez" />
       </section>
 
-      <div className="mb-4 flex gap-2 border-b pb-4" role="group" aria-label="Vista de prompts">
+      <section className="mb-6 border-y py-5" aria-label="Buscar recursos">
+        <label htmlFor="resource-search" className="mb-3 block font-display text-3xl">¿En qué estás trabajando?</label>
+        <div className="relative">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+          <Input id="resource-search" type="search" aria-label="Buscar prompts y skills" placeholder="PRD, entrevistas, métricas…" value={search} onChange={(e) => setSearch(e.target.value)} className="h-12 pl-10 pr-12" />
+          {search && <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2" aria-label="Borrar búsqueda" title="Borrar búsqueda" onClick={() => setSearch("")}><X /></Button>}
+        </div>
+      </section>
+      <div className="mb-4 flex flex-wrap gap-2 border-b pb-4" role="group" aria-label="Vista de prompts">
         <Button variant={onlyMine ? "outline" : "default"} aria-pressed={!onlyMine} onClick={() => setOnlyMine(false)}>Banco completo</Button>
         <Button variant={onlyMine ? "default" : "outline"} aria-pressed={onlyMine} onClick={() => setOnlyMine(true)}>Mis aportaciones ({myPrompts.length})</Button>
       </div>
@@ -133,8 +145,18 @@ function Index() {
         ))}
       </nav>
 
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground" role="status">{visible.length} {visible.length === 1 ? "recurso" : "recursos"}{search.trim() ? ` para «${search.trim()}»` : ""}</p>
+        <div className="flex gap-2" role="group" aria-label="Ordenar recursos">
+          <Button size="sm" variant={order === "recent" ? "default" : "outline"} aria-pressed={order === "recent"} onClick={() => setOrder("recent")}><Clock /> Recientes</Button>
+          <Button size="sm" variant={order === "reused" ? "default" : "outline"} aria-pressed={order === "reused"} onClick={() => setOrder("reused")}><TrendingUp /> Más reutilizados</Button>
+        </div>
+      </div>
       {visible.length === 0 ? (
-        <p className="py-16 text-center font-display text-3xl text-muted-foreground">{onlyMine ? (module ? "No has añadido recursos en esta fase." : "Todavía no has añadido ningún recurso.") : "Aún no hay recursos aquí. Sé el primero."}</p>
+        <div className="py-12 text-center">
+          <p className="font-display text-3xl text-muted-foreground">{search.trim() ? "No hay recursos que coincidan con tu búsqueda." : onlyMine ? (module ? "No has añadido recursos en esta fase." : "Todavía no has añadido ningún recurso.") : "Aún no hay recursos aquí. Sé el primero."}</p>
+          {(search || module || kind || onlyMine) && <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setModule(null); setKind(null); setOnlyMine(false); }}>Ver todo el banco</Button>}
+        </div>
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
           {visible.map((p) => (
