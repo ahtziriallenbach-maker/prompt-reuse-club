@@ -32,3 +32,4 @@ use the editor.
 - Reuse metric lives in src/lib/reuse.ts: a copy counts only when copier differs from author (by account when both have one, else by name); keeps the class question measurable in one tested place.
 - Resource data is readable only by signed-in accounts; mutations use requireSupabaseAuth server functions and authorize by prompts.owner_id (legacy rows without owner stay unmanageable). prompt_ownership is deprecated.
 - Prompts and skills share the resource collection and ownership boundary; attachment metadata is server-managed and files use private Storage with short-lived download URLs to prevent public uploads or arbitrary file access.
+- Keep resource search and ordering in src/lib/resource-search.ts as pure functions over the signed-in collection, so discovery is testable without new data access permissions.
